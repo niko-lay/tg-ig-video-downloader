@@ -1,0 +1,6 @@
+python-telegram-bot
+python-telegram-bot[ext]
+
+yt_dlp
+# youtube_dl
+
