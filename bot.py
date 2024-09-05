@@ -71,11 +71,11 @@ def remove_query_param_from_url(in_url, param_to_remove="igsh"):
 
     return new_url
 
-final_filename = None
-def yt_dlp_monitor(status, d):
-    print(status)
-    final_filename  = d.get('info_dict').get('_filename')
-    print(final_filename)
+# final_filename = None
+# def yt_dlp_monitor(d):
+#     print(d)
+#     final_filename  = d.get('info_dict').get('_filename')
+#     print(final_filename)
 
 async def msg_urls_processor(update: Update, context) -> None:
     urls = extract_urls_from_message(update)
@@ -88,17 +88,24 @@ async def msg_urls_processor(update: Update, context) -> None:
     url_to_process = ig_urls[0]
     down_path = f"./downloads/{generate_md5_hash(url_to_process)}"
 
-    # ydl_opts = {'noprogress': True,
-    #             'outtmpl': down_path,
-    #             "progress_hooks": [yt_dlp_monitor]
-    #             }
-    ydl_opts = {'listformats': True,
-                'outtmpl': down_path}
+
+    download_result = None
+    def yt_dlp_monitor(d):
+        if d['status'] == 'finished':
+            download_result = d
+
+    ydl_opts = {'noprogress': True,
+                'outtmpl': down_path,
+                "progress_hooks": [yt_dlp_monitor]
+                }
+    # ydl_opts = {'listformats': True,
+    #             'outtmpl': down_path}
 
     
     with YoutubeDL(ydl_opts) as ydl:
         ret=ydl.download(url_to_process)
-        print(ret)
+        print(download_result)
+
         if ret == 0:
             await update.message.reply_document(down_path + '.mp4')
         else:
