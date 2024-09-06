@@ -73,8 +73,11 @@ async def msg_urls_processor(update: Update, context) -> None:
 
     url_to_process = ig_urls[0]
 
+    await update.message.reply_chat_action(action="typing")
+
     ydl_opts = {'noprogress': True,
-                'paths': {'home': download_folder}
+                'paths': {'home': download_folder},
+                'format': '[protocol!*=dash]'
                 }
 
     with YoutubeDL(ydl_opts) as ydl:
@@ -82,16 +85,16 @@ async def msg_urls_processor(update: Update, context) -> None:
             info_dict = ydl.extract_info(url_to_process, download=True)
         except:
             await update.message.reply_text('Download failed')
-            
-        output_filename = ydl.prepare_filename(info_dict)
-        await update.message.reply_chat_action(action="upload_video")
 
-        message = await update.message.reply_video(output_filename, caption=info_dict['description'])
+        await update.message.reply_chat_action(action="upload_video")
+        output_filename = ydl.prepare_filename(info_dict)
+
+        message = await update.message.reply_video(output_filename, caption=info_dict['description'], write_timeout=600)
         file_id = message.video.file_id
         print(f"file_id={file_id}")
             
     
-app = ApplicationBuilder().write_timeout(180).token(tg_bot_token).build()
+app = ApplicationBuilder().write_timeout(300).token(tg_bot_token).build()
 
 app.add_handler(
     MessageHandler(
