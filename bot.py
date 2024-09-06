@@ -84,12 +84,12 @@ async def msg_urls_processor(update: Update, context) -> None:
             await update.message.reply_text('Download failed')
             
         output_filename = ydl.prepare_filename(info_dict)
-        
-        message = await update.message.reply_video(output_filename, caption=info_dict['description'], protect_content=True)
+        await update.message.reply_chat_action(action="upload_video")
+
+        message = await update.message.reply_video(output_filename, caption=info_dict['description'])
         file_id = message.video.file_id
-        print(file_id)
+        print(f"file_id={file_id}")
             
-        
     
 app = ApplicationBuilder().write_timeout(180).token(tg_bot_token).build()
 
