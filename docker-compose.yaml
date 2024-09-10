@@ -1,0 +1,19 @@
+services:
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - ./runtime-data/redis:/data
+
+  bot:
+    build:
+        dockerfile: Dockerfile
+        context: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+        - redis
+    volumes:
+      - ./runtime-data/downloads:/downloads
+
