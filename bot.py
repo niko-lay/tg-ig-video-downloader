@@ -16,6 +16,9 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
 download_folder = os.environ.get("DOWNLOAD_FOLDER", './downloads')
 
+CAPTION_MAX_LEN=1024
+CAPTION_MAX_CROP='\n ...cropped by bot'
+
 def extract_urls_from_message(update: Update):
     urls = []
     if update.message and update.message.entities:
@@ -89,7 +92,12 @@ async def msg_urls_processor(update: Update, context) -> None:
         await update.message.reply_chat_action(action="upload_video")
         output_filename = ydl.prepare_filename(info_dict)
 
-        message = await update.message.reply_video(output_filename, caption=info_dict['description'], write_timeout=600)
+        if info_dict['description'] and len(info_dict['description']) >= CAPTION_MAX_LEN:
+            msg = info_dict['description'][:CAPTION_MAX_LEN-len(CAPTION_MAX_CROP)] + CAPTION_MAX_CROP
+        else:
+            msg = info_dict['description']
+
+        message = await update.message.reply_video(output_filename, caption=msg, write_timeout=600)
         file_id = message.video.file_id
         print(f"file_id={file_id}")
             
