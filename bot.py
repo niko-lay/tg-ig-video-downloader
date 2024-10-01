@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 from telegram import Update, MessageEntity
 from telegram.ext import (
     ApplicationBuilder,
@@ -41,7 +42,7 @@ def extract_urls_from_message(update: Update) -> list[str]:
 
 def filter_ig_urs(in_urls: list[str]) -> list[str]:
     urls = []
-    urls = [s for s in in_urls if s.startswith("https://www.instagram.com/reel")]
+    urls = [s for s in in_urls if re.search("https://www\.instagram\.com(?:[_0-9a-z./]+)?/reel",s)]
     urls = [remove_query_param_from_url(url) for url in urls]
     return urls
 
