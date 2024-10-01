@@ -14,13 +14,14 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 # exeption if no token not provided
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
-download_folder = os.environ.get("DOWNLOAD_FOLDER", './downloads')
+download_folder = os.environ.get("DOWNLOAD_FOLDER", "./downloads")
 
-CAPTION_MAX_LEN=1024
-CAPTION_MAX_CROP_TEXT='\n ...cropped by bot'
-TG_BOT_MAX_UPLOAD_SIZE=50*1024*1024
+CAPTION_MAX_LEN = 1024
+CAPTION_MAX_CROP_TEXT = "\n ...cropped by bot"
+TG_BOT_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
 
-def extract_urls_from_message(update: Update):
+
+def extract_urls_from_message(update: Update) -> list[str]:
     urls = []
     if update.message and update.message.entities:
         for entity in update.message.entities:
@@ -38,14 +39,14 @@ def extract_urls_from_message(update: Update):
     return urls
 
 
-def filter_ig_urs(in_urls):
+def filter_ig_urs(in_urls: list[str]) -> list[str]:
     urls = []
     urls = [s for s in in_urls if s.startswith("https://www.instagram.com/reel")]
     urls = [remove_query_param_from_url(url) for url in urls]
     return urls
 
 
-def remove_query_param_from_url(in_url, param_to_remove="igsh"):
+def remove_query_param_from_url(in_url: str, param_to_remove="igsh") -> str:
 
     parsed_url = urlparse(in_url)
 
@@ -69,6 +70,7 @@ def remove_query_param_from_url(in_url, param_to_remove="igsh"):
 
     return new_url
 
+
 async def msg_urls_processor(update: Update, context) -> None:
     urls = extract_urls_from_message(update)
     ig_urls = filter_ig_urs(urls)
@@ -79,39 +81,53 @@ async def msg_urls_processor(update: Update, context) -> None:
 
     await update.message.reply_chat_action(action="typing")
 
-    ydl_opts = {'noprogress': True,
-                'paths': {'home': download_folder},
-                'format': '[protocol!*=dash]'
-                }
+    ydl_opts = {
+        "noprogress": True,
+        "paths": {"home": download_folder},
+        "format": "[protocol!*=dash]",
+    }
 
     with YoutubeDL(ydl_opts) as ydl:
         try:
             info_dict = ydl.extract_info(url_to_process, download=True)
         except:
-            await update.message.reply_text('Download failed')
+            await update.message.reply_text("Download failed")
 
         await update.message.reply_chat_action(action="upload_video")
         output_filename = ydl.prepare_filename(info_dict)
         video_size = os.path.getsize(output_filename)
-        if video_size > TG_BOT_MAX_UPLOAD_SIZE :
+        if video_size > TG_BOT_MAX_UPLOAD_SIZE:
             msg = f"Video is too big (~{video_size//(1024*1024)}Mb) to upload, use <a href=\"{info_dict['url']}\">direct link</a> instead"
             msg += "\n___________\nOriginal description:\n"
-            msg += info_dict['description']
+            msg += info_dict["description"]
             message = await update.message.reply_html(msg)
         else:
-            if info_dict['description'] and len(info_dict['description']) >= CAPTION_MAX_LEN:
-                msg = info_dict['description'][:CAPTION_MAX_LEN-len(CAPTION_MAX_CROP_TEXT)] + CAPTION_MAX_CROP_TEXT
+            if (
+                info_dict["description"]
+                and len(info_dict["description"]) >= CAPTION_MAX_LEN
+            ):
+                msg = (
+                    info_dict["description"][
+                        : CAPTION_MAX_LEN - len(CAPTION_MAX_CROP_TEXT)
+                    ]
+                    + CAPTION_MAX_CROP_TEXT
+                )
             else:
-                msg = info_dict['description']
+                msg = info_dict["description"]
 
-            message = await update.message.reply_video(output_filename, caption=msg, write_timeout=600, 
-                                                    width=info_dict['width'], height=info_dict['height'], 
-                                                    duration=info_dict['duration_string'])
-        
+            message = await update.message.reply_video(
+                output_filename,
+                caption=msg,
+                write_timeout=600,
+                width=info_dict["width"],
+                height=info_dict["height"],
+                duration=info_dict["duration_string"],
+            )
+
             file_id = message.video.file_id
             print(f"file_id={file_id}")
-            
-    
+
+
 app = ApplicationBuilder().write_timeout(300).token(tg_bot_token).build()
 
 app.add_handler(
