@@ -17,7 +17,8 @@ tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
 download_folder = os.environ.get("DOWNLOAD_FOLDER", './downloads')
 
 CAPTION_MAX_LEN=1024
-CAPTION_MAX_CROP='\n ...cropped by bot'
+CAPTION_MAX_CROP_TEXT='\n ...cropped by bot'
+TG_BOT_MAX_UPLOAD_SIZE=50*1024*1024
 
 def extract_urls_from_message(update: Update):
     urls = []
@@ -91,15 +92,24 @@ async def msg_urls_processor(update: Update, context) -> None:
 
         await update.message.reply_chat_action(action="upload_video")
         output_filename = ydl.prepare_filename(info_dict)
-
-        if info_dict['description'] and len(info_dict['description']) >= CAPTION_MAX_LEN:
-            msg = info_dict['description'][:CAPTION_MAX_LEN-len(CAPTION_MAX_CROP)] + CAPTION_MAX_CROP
+        video_size = os.path.getsize(output_filename)
+        if video_size > TG_BOT_MAX_UPLOAD_SIZE :
+            msg = f"Video is too big (~{video_size//(1024*1024)}Mb) to upload, use <a href=\"{info_dict['url']}\">direct link</a> instead"
+            msg += "\n___________\nOriginal description:\n"
+            msg += info_dict['description']
+            message = await update.message.reply_html(msg)
         else:
-            msg = info_dict['description']
+            if info_dict['description'] and len(info_dict['description']) >= CAPTION_MAX_LEN:
+                msg = info_dict['description'][:CAPTION_MAX_LEN-len(CAPTION_MAX_CROP_TEXT)] + CAPTION_MAX_CROP_TEXT
+            else:
+                msg = info_dict['description']
 
-        message = await update.message.reply_video(output_filename, caption=msg, write_timeout=600)
-        file_id = message.video.file_id
-        print(f"file_id={file_id}")
+            message = await update.message.reply_video(output_filename, caption=msg, write_timeout=600, 
+                                                    width=info_dict['width'], height=info_dict['height'], 
+                                                    duration=info_dict['duration_string'])
+        
+            file_id = message.video.file_id
+            print(f"file_id={file_id}")
             
     
 app = ApplicationBuilder().write_timeout(300).token(tg_bot_token).build()
