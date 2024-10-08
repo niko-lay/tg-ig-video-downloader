@@ -1,6 +1,6 @@
 python-telegram-bot
 python-telegram-bot[ext]
 
-yt_dlp
+yt_dlp>=2024.10.07
 # youtube_dl
 
