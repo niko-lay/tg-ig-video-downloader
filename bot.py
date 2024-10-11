@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 from yt_dlp import YoutubeDL
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import requests
 
 # exeption if no token not provided
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -71,6 +72,12 @@ def remove_query_param_from_url(in_url: str, param_to_remove="igsh") -> str:
 
     return new_url
 
+def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
+    video_id_str = 'https://www\.instagram\.com(?:[_0-9a-z./]+)?/reel/([_a-zA-Z])'
+    urls = []
+    # urls = [s for s in in_urls if re.search("https://www\.instagram\.com(?:[_0-9a-z./]+)?/reel",s)]
+    urls = [s for s in in_urls if re.findall(video_id_str, s)[0][0]]
+    return urls
 
 async def msg_urls_processor(update: Update, context) -> None:
     urls = extract_urls_from_message(update)
@@ -78,9 +85,11 @@ async def msg_urls_processor(update: Update, context) -> None:
     if not ig_urls:
         return
 
-    url_to_process = ig_urls[0]
+    url_to_process = get_video_ids_from_url(ig_urls)
 
     await update.message.reply_chat_action(action="typing")
+    
+    return
 
     ydl_opts = {
         "noprogress": True,
