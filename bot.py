@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 from yt_dlp import YoutubeDL
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import requests
 
 # exeption if no token not provided
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -71,6 +72,32 @@ def remove_query_param_from_url(in_url: str, param_to_remove="igsh") -> str:
 
     return new_url
 
+def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
+    video_id_str = 'https:\/\/www\.instagram\.com(?:[_0-9a-z.\/]+)?\/reel\/(.+)\/'
+    video_ids = []
+    for url in in_urls:
+        match = re.findall(video_id_str,url)
+        if len(match):
+            video_ids.append(match[0])
+    return video_ids
+
+def get_video_url_by_video_id(video_id: str) -> str:
+    ig_quary_url = 'https://www.instagram.com/graphql/query'
+
+    payload = {
+        'variables': '{"shortcode":"' + video_id + '"}',
+        'doc_id': '8845758582119845'
+    }
+
+    response = requests.post(ig_quary_url, data=payload)
+    response_json = response.json()
+
+    data_field = response_json.get('data').get('xdt_shortcode_media').get('video_url')
+    video_description = response_json['data']['xdt_shortcode_media']['edge_media_to_caption']['edges'][0]['node']['text']
+
+    # print(video_description)
+    return data_field, video_description 
+
 
 async def msg_urls_processor(update: Update, context) -> None:
     urls = extract_urls_from_message(update)
@@ -78,9 +105,16 @@ async def msg_urls_processor(update: Update, context) -> None:
     if not ig_urls:
         return
 
-    url_to_process = ig_urls[0]
+    video_id = get_video_ids_from_url(ig_urls)[0]
 
-    await update.message.reply_chat_action(action="typing")
+    await update.message.reply_chat_action(action="upload_video")
+    video_link,video_description = get_video_url_by_video_id(video_id)
+    message = await update.message.reply_video(video_link, caption=video_description)
+
+    file_id = message.video.file_id
+    print(f"file_id={file_id}")
+
+    return
 
     ydl_opts = {
         "noprogress": True,
