@@ -1,1 +1,1 @@
-Telegram bot which download video from instagram in TG grops from posted links
+Telegram bot which downloads video from instagram in TG groups from posted links
