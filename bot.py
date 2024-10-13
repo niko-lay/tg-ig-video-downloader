@@ -93,9 +93,10 @@ def get_video_url_by_video_id(video_id: str) -> str:
     response_json = response.json()
 
     data_field = response_json.get('data').get('xdt_shortcode_media').get('video_url')
+    video_description = response_json['data']['xdt_shortcode_media']['edge_media_to_caption']['edges'][0]['node']['text']
 
-    # print(data_field)
-    return data_field
+    # print(video_description)
+    return data_field, video_description 
 
 
 async def msg_urls_processor(update: Update, context) -> None:
@@ -107,8 +108,8 @@ async def msg_urls_processor(update: Update, context) -> None:
     video_id = get_video_ids_from_url(ig_urls)[0]
 
     await update.message.reply_chat_action(action="upload_video")
-    video_link = get_video_url_by_video_id(video_id)
-    message = await update.message.reply_video(video_link)
+    video_link,video_description = get_video_url_by_video_id(video_id)
+    message = await update.message.reply_video(video_link, caption=video_description)
 
     file_id = message.video.file_id
     print(f"file_id={file_id}")
