@@ -80,22 +80,25 @@ def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
             video_ids.append(match[0])
     return video_ids
 
-def get_video_url_by_video_id(video_id: str) -> str:
-    ig_quary_url = 'https://www.instagram.com/graphql/query'
+def get_video_data_by_video_id(video_id: str) -> str:
+    ig_query_url = 'https://www.instagram.com/graphql/query'
 
     payload = {
         'variables': '{"shortcode":"' + video_id + '"}',
         'doc_id': '8845758582119845'
     }
 
-    response = requests.post(ig_quary_url, data=payload)
+    response = requests.post(ig_query_url, data=payload)
     response_json = response.json()
 
-    data_field = response_json.get('data').get('xdt_shortcode_media').get('video_url')
-    video_description = response_json['data']['xdt_shortcode_media']['edge_media_to_caption']['edges'][0]['node']['text']
+    video_url = response_json.get('data').get('xdt_shortcode_media').get('video_url')
+    try:
+        video_description = response_json['data']['xdt_shortcode_media']['edge_media_to_caption']['edges'][0]['node']['text']
+    except:
+        video_description = ''
+    video_duration = response_json.get('data').get('xdt_shortcode_media').get('video_duration')
 
-    # print(video_description)
-    return data_field, video_description 
+    return video_url, video_description 
 
 
 async def msg_urls_processor(update: Update, context) -> None:
@@ -107,8 +110,13 @@ async def msg_urls_processor(update: Update, context) -> None:
     video_id = get_video_ids_from_url(ig_urls)[0]
 
     await update.message.reply_chat_action(action="upload_video")
-    video_link,video_description = get_video_url_by_video_id(video_id)
-    message = await update.message.reply_video(video_link, caption=video_description)
+    video_link,video_description = get_video_data_by_video_id(video_id)
+    if (video_description  and len(video_description) >= CAPTION_MAX_LEN):
+        msg =  video_description[:CAPTION_MAX_LEN - len(CAPTION_MAX_CROP_TEXT)]  + CAPTION_MAX_CROP_TEXT
+    else:
+        msg = video_description
+
+    message = await update.message.reply_video(video_link, caption=msg)
 
     file_id = message.video.file_id
     print(f"file_id={file_id}")
