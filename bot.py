@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import requests
+import logging
 
 # exeption if no token not provided
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -20,6 +21,14 @@ download_folder = os.environ.get("DOWNLOAD_FOLDER", "./downloads")
 CAPTION_MAX_LEN = 1024
 CAPTION_MAX_CROP_TEXT = "\n ...cropped by bot"
 TG_BOT_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+# set higher logging level for httpx to avoid all GET and POST requests being logged
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
 
 
 def extract_urls_from_message(update: Update) -> list[str]:
@@ -42,7 +51,11 @@ def extract_urls_from_message(update: Update) -> list[str]:
 
 def filter_ig_urs(in_urls: list[str]) -> list[str]:
     urls = []
-    urls = [s for s in in_urls if re.search("https://www\.instagram\.com(?:[_0-9a-z./]+)?/reel",s)]
+    urls = [
+        s
+        for s in in_urls
+        if re.search("https://www\.instagram\.com(?:[_0-9a-z./]+)?/reel", s)
+    ]
     urls = [remove_query_param_from_url(url) for url in urls]
     return urls
 
@@ -71,34 +84,40 @@ def remove_query_param_from_url(in_url: str, param_to_remove="igsh") -> str:
 
     return new_url
 
+
 def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
-    video_id_str = 'https:\/\/www\.instagram\.com(?:[_0-9a-z.\/]+)?\/reel\/(.+)\/'
+    video_id_str = "https:\/\/www\.instagram\.com(?:[_0-9a-z.\/]+)?\/reel\/(.+)\/"
     video_ids = []
     for url in in_urls:
-        match = re.findall(video_id_str,url)
+        match = re.findall(video_id_str, url)
         if len(match):
             video_ids.append(match[0])
     return video_ids
 
+
 def get_video_data_by_video_id(video_id: str) -> str:
-    ig_query_url = 'https://www.instagram.com/graphql/query'
+    ig_query_url = "https://www.instagram.com/graphql/query"
 
     payload = {
-        'variables': '{"shortcode":"' + video_id + '"}',
-        'doc_id': '8845758582119845'
+        "variables": '{"shortcode":"' + video_id + '"}',
+        "doc_id": "8845758582119845",
     }
 
     response = requests.post(ig_query_url, data=payload)
     response_json = response.json()
 
-    video_url = response_json.get('data').get('xdt_shortcode_media').get('video_url')
+    video_url = response_json.get("data").get("xdt_shortcode_media").get("video_url")
     try:
-        video_description = response_json['data']['xdt_shortcode_media']['edge_media_to_caption']['edges'][0]['node']['text']
+        video_description = response_json["data"]["xdt_shortcode_media"][
+            "edge_media_to_caption"
+        ]["edges"][0]["node"]["text"]
     except:
-        video_description = ''
-    video_duration = response_json.get('data').get('xdt_shortcode_media').get('video_duration')
+        video_description = ""
+    video_duration = (
+        response_json.get("data").get("xdt_shortcode_media").get("video_duration")
+    )
 
-    return video_url, video_description 
+    return video_url, video_description
 
 
 async def msg_urls_processor(update: Update, context) -> None:
@@ -110,29 +129,50 @@ async def msg_urls_processor(update: Update, context) -> None:
     video_id = get_video_ids_from_url(ig_urls)[0]
 
     await update.message.reply_chat_action(action="upload_video")
-    video_link,video_description = get_video_data_by_video_id(video_id)
-    if (video_description  and len(video_description) >= CAPTION_MAX_LEN):
-        msg =  video_description[:CAPTION_MAX_LEN - len(CAPTION_MAX_CROP_TEXT)]  + CAPTION_MAX_CROP_TEXT
+    video_link, video_description = get_video_data_by_video_id(video_id)
+    if video_description and len(video_description) >= CAPTION_MAX_LEN:
+        msg = (
+            video_description[: CAPTION_MAX_LEN - len(CAPTION_MAX_CROP_TEXT)]
+            + CAPTION_MAX_CROP_TEXT
+        )
     else:
         msg = video_description
 
     message = await update.message.reply_video(video_link, caption=msg)
 
     file_id = message.video.file_id
-    print(f"file_id={file_id}")
+    logger.info(msg=f"File was uploaded to TG with file_id: {file_id}")
 
 
-
-
-app = ApplicationBuilder().write_timeout(300).token(tg_bot_token).build()
-
-app.add_handler(
-    MessageHandler(
-        filters.ChatType.GROUPS
-        & (filters.Entity("url") | filters.Entity("text_link"))
-        & ~filters.COMMAND,
-        msg_urls_processor,
+async def post_init(app) -> None:
+    me = await app.bot.getMe()
+    logger.info(
+        msg=f"Bot @{me.username} started sucssesfully. Bot name: {me.first_name}"
     )
-)
 
-app.run_polling()
+
+def main() -> None:
+    """Run the bot."""
+
+    app = (
+        ApplicationBuilder()
+        .write_timeout(300)
+        .token(tg_bot_token)
+        .post_init(post_init)
+        .build()
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.GROUPS
+            & (filters.Entity("url") | filters.Entity("text_link"))
+            & ~filters.COMMAND,
+            msg_urls_processor,
+        )
+    )
+
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
