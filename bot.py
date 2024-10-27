@@ -9,6 +9,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
+    ChatMemberHandler,
     filters,
 )
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
@@ -155,10 +156,21 @@ async def post_init(app) -> None:
     )
 
 
+async def send_message_to_owner(msg: str, context):
+    if BOT_OWNER_CHAT_ID:
+        await context.bot.send_message(chat_id=BOT_OWNER_CHAT_ID, text=msg)
+
+
 async def on_new_start(update: Update, context) -> None:
     logger.info(f"new bot startup in: {update}")
-    if BOT_OWNER_CHAT_ID:
-        await context.bot.send_message(chat_id=BOT_OWNER_CHAT_ID, text=update)
+    await send_message_to_owner(update, context)
+
+
+async def new_group_added(update: Update, context) -> None:
+    # double check if it was bot
+    if update.my_chat_member.new_chat_member.user.id == context.bot.id:
+        logger.info(f"bot was added to the gruop: {update}")
+        await send_message_to_owner(update, context)
 
 
 def main() -> None:
@@ -175,6 +187,9 @@ def main() -> None:
         )
     )
     app.add_handler(CommandHandler("start", on_new_start))
+    app.add_handler(
+        ChatMemberHandler(new_group_added, ChatMemberHandler.MY_CHAT_MEMBER)
+    )
 
     app.run_polling()
 
