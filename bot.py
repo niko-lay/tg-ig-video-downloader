@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import re
 from telegram import Update, MessageEntity
@@ -16,11 +17,11 @@ import logging
 
 # exeption if no token not provided
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
-download_folder = os.environ.get("DOWNLOAD_FOLDER", "./downloads")
 
 CAPTION_MAX_LEN = 1024
 CAPTION_MAX_CROP_TEXT = "\n ...cropped by bot"
 TG_BOT_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+BOT_OWNER_CHAT_ID = os.environ.get("BOT_OWNER_CHAT_ID", None)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -98,8 +99,9 @@ def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
 def get_video_data_by_video_id(video_id: str) -> str:
     ig_query_url = "https://www.instagram.com/graphql/query"
 
+    variable = {"shortcode": video_id}
     payload = {
-        "variables": '{"shortcode":"' + video_id + '"}',
+        "variables": json.dumps(variable),
         "doc_id": "8845758582119845",
     }
 
@@ -141,7 +143,9 @@ async def msg_urls_processor(update: Update, context) -> None:
     message = await update.message.reply_video(video_link, caption=msg)
 
     file_id = message.video.file_id
-    logger.info(msg=f"File was uploaded to TG with file_id: {file_id}")
+    logger.info(
+        msg=f"""File was uploaded to TG with file_id: {file_id}. Chat: "{message.chat.title}" with id: {message.chat.id}"""
+    )
 
 
 async def post_init(app) -> None:
@@ -151,16 +155,16 @@ async def post_init(app) -> None:
     )
 
 
+async def on_new_start(update: Update, context) -> None:
+    logger.info(f"new bot startup in: {update}")
+    if BOT_OWNER_CHAT_ID:
+        await context.bot.send_message(chat_id=BOT_OWNER_CHAT_ID, text=update)
+
+
 def main() -> None:
     """Run the bot."""
 
-    app = (
-        ApplicationBuilder()
-        .write_timeout(300)
-        .token(tg_bot_token)
-        .post_init(post_init)
-        .build()
-    )
+    app = ApplicationBuilder().token(tg_bot_token).post_init(post_init).build()
 
     app.add_handler(
         MessageHandler(
@@ -170,6 +174,7 @@ def main() -> None:
             msg_urls_processor,
         )
     )
+    app.add_handler(CommandHandler("start", on_new_start))
 
     app.run_polling()
 
