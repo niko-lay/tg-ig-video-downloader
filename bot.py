@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_urls_from_message(update: Update) -> list[str]:
+    """ Extract IG urls from message """
     urls = []
     if update.message and update.message.entities:
         for entity in update.message.entities:
@@ -53,42 +54,16 @@ def extract_urls_from_message(update: Update) -> list[str]:
                 urls.append(url)
     return urls
 
+def unsort_urls(in_irls: list[str]) -> list[str]:
+    """ get actual link to IG post, reels or image
+        https://www.instagram.com/share/XXYYZZ => https://www.instagram.com/reel/AABBCC/
+    """
+    session = requests.Session()
+    return [session.head(u, allow_redirects=True).url for u in in_irls]
+
 
 def filter_ig_urs(in_urls: list[str]) -> list[str]:
-    urls = []
-    urls = [
-        s
-        for s in in_urls
-        if re.search("https://www\.instagram\.com(?:[_0-9a-z./]+)?/reel", s)
-    ]
-    urls = [remove_query_param_from_url(url) for url in urls]
-    return urls
-
-
-def remove_query_param_from_url(in_url: str, param_to_remove="igsh") -> str:
-
-    parsed_url = urlparse(in_url)
-
-    query_params = parse_qs(parsed_url.query)
-
-    if param_to_remove in query_params:
-        del query_params[param_to_remove]
-
-    new_query_string = urlencode(query_params, doseq=True)
-
-    new_url = urlunparse(
-        (
-            parsed_url.scheme,
-            parsed_url.netloc,
-            parsed_url.path,
-            parsed_url.params,
-            new_query_string,
-            parsed_url.fragment,
-        )
-    )
-
-    return new_url
-
+    return [u for u in in_urls if u.startswith(('https://www.instagram.com', 'https://instagram.com'))]
 
 def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
     video_id_str = "https:\/\/www\.instagram\.com(?:[_0-9a-z.\/]+)?\/reel\/(.+)\/"
@@ -177,6 +152,7 @@ def clip_msg(in_msg: str) -> str:
 async def msg_urls_processor(update: Update, context) -> None:
     urls = extract_urls_from_message(update)
     ig_urls = filter_ig_urs(urls)
+    ig_urls = unsort_urls(ig_urls)
     if not ig_urls:
         return
 
