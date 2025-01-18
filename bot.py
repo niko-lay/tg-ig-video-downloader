@@ -22,8 +22,10 @@ tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
 
 CAPTION_MAX_LEN = 1024
 CAPTION_MAX_CROP_TEXT = "\n ...cropped by bot"
+# max bot reply is 50MB
 TG_BOT_MAX_UPLOAD_SIZE = 50 * 1024 * 1024
-TG_BOT_MAX_DOWNLOAD_BY_URL_ZISE = 20 * 1024 * 1024
+# TG downloading file by url less than 20MB
+TG_BOT_MAX_DOWNLOAD_BY_URL_SIZE = 20 * 1024 * 1024
 BOT_OWNER_CHAT_ID = os.environ.get("BOT_OWNER_CHAT_ID", None)
 
 
@@ -172,9 +174,9 @@ async def msg_urls_processor(update: Update, context) -> None:
         msg = clip_msg(too_big_msg)
         message = await update.message.reply_text(msg)
 
-    elif size_in_bytes >= TG_BOT_MAX_DOWNLOAD_BY_URL_ZISE:
+    elif size_in_bytes >= TG_BOT_MAX_DOWNLOAD_BY_URL_SIZE:
         logger.info(
-            f"File is too big ({size_in_bytes} bytes) to be dowloaded by TG ({TG_BOT_MAX_DOWNLOAD_BY_URL_ZISE}), downloading it on my own..."
+            f"File is too big ({size_in_bytes} bytes) to be dowloaded by TG ({TG_BOT_MAX_DOWNLOAD_BY_URL_SIZE}), downloading it on my own..."
         )
         downloded_file = download_file_to_temp(video_link)
         try:
