@@ -190,9 +190,9 @@ async def msg_urls_processor(update: Update, context) -> None:
 
     if size_in_bytes >= TG_BOT_MAX_UPLOAD_SIZE:
         logger.info(
-            f"File is too big ({size_in_bytes} bytes) to be uploaded to TG ({TG_BOT_MAX_UPLOAD_SIZE}) use direct link to it"
+            f"File is too big ({size_in_bytes} bytes) to be uploaded to TG ({TG_BOT_MAX_UPLOAD_SIZE}) use direct link to view it"
         )
-        too_big_msg = f"""Video to big to upload it via bot, please use <a href="{video_link}">direct link</a>. _____ Original post description: {video_description}"""
+        too_big_msg = f"""Video is too big to upload it via bot, please use <a href="{video_link}">direct link</a>. _____ Original post description: {video_description}"""
         msg = clip_msg(too_big_msg)
         message = await update.message.reply_text(msg)
 
