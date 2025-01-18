@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_urls_from_message(update: Update) -> list[str]:
-    """ Extract IG urls from message """
+    """Extract IG urls from message"""
     urls = []
     if update.message and update.message.entities:
         for entity in update.message.entities:
@@ -57,16 +57,22 @@ def extract_urls_from_message(update: Update) -> list[str]:
                 urls.append(url)
     return urls
 
-def unsort_urls(in_irls: list[str]) -> list[str]:
-    """ get actual link to IG post, reels or image
-        https://www.instagram.com/share/XXYYZZ => https://www.instagram.com/reel/AABBCC/
+
+def unshort_urls(in_irls: list[str]) -> list[str]:
+    """get actual link to IG post, reels or image
+    https://www.instagram.com/share/XXYYZZ => https://www.instagram.com/reel/AABBCC/
     """
     session = requests.Session()
     return [session.head(u, allow_redirects=True).url for u in in_irls]
 
 
 def filter_ig_urs(in_urls: list[str]) -> list[str]:
-    return [u for u in in_urls if u.startswith(('https://www.instagram.com', 'https://instagram.com'))]
+    return [
+        u
+        for u in in_urls
+        if u.startswith(("https://www.instagram.com", "https://instagram.com"))
+    ]
+
 
 def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
     video_id_str = "https:\/\/www\.instagram\.com(?:[_0-9a-z.\/]+)?\/reel\/(.+)\/"
@@ -154,12 +160,11 @@ def clip_msg(in_msg: str) -> str:
 
 async def msg_urls_processor(update: Update, context) -> None:
     urls = extract_urls_from_message(update)
-    ig_urls = filter_ig_urs(urls)
-    ig_urls = unsort_urls(ig_urls)
-    if not ig_urls:
+    video_ids = get_video_ids_from_url(unshort_urls(filter_ig_urs(urls)))
+    if not video_ids:
         return
 
-    video_id = get_video_ids_from_url(ig_urls)[0]
+    video_id = video_ids[0]
 
     await update.message.reply_chat_action(action="upload_video")
     video_link, video_description = get_video_data_by_video_id(video_id)
@@ -205,7 +210,9 @@ async def send_message_to_owner(msg, context):
         msg = json.loads(msg.to_json())
 
     if BOT_OWNER_CHAT_ID:
-        await context.bot.send_message(BOT_OWNER_CHAT_ID,  json.dumps(msg, ensure_ascii=False, indent=4))
+        await context.bot.send_message(
+            BOT_OWNER_CHAT_ID, json.dumps(msg, ensure_ascii=False, indent=4)
+        )
 
 
 async def on_new_start(update: Update, context) -> None:
