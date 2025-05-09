@@ -17,6 +17,7 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import requests
 import logging
 import tempfile
+import uuid
 
 # exeption if no token not provided
 tg_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -84,6 +85,43 @@ def get_video_ids_from_url(in_urls: list[str]) -> list[str]:
     return video_ids
 
 
+def get_video_data_by_video_id2(video_id: str) -> str:
+    type_id = 103
+
+    url = "https://i.instagram.com/api/v1/clips/clips_on_logged_out/"
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/x-www-form-urlencoded",
+        "x-ig-app-id": "916636666702661",
+        "x-ig-device-id": str(uuid.uuid4()).upper(),
+        "user-agent": "instagram 368.0.0.697963422 (iPhone; iOS 16.7.2; ru_RU; ru; scale=2.0; 750x1334; 0)",
+        "accept-language": "ru",
+    }
+    data = {"page_size": "7", "clips_media_shortcode": video_id}
+
+    response = requests.post(url, headers=headers, data=data)
+    # response.status_code = 401
+    # if response.status_code != 200:
+    #     send_message_to_owner(f"Error {response.status_code} communicate with IG, {response.text}")
+    #     return
+
+    response_json = response.json()
+
+    video_versions = response_json["items"][0]["media"]["video_versions"]
+    # return video url with type_id or first element
+    video_url = next(
+        (v["url"] for v in video_versions if v["type"] == type_id),
+        video_versions[0]["url"],
+    )
+
+    try:
+        video_description = response_json.get("items")[0]["media"]["caption"]["text"]
+    except:
+        video_description = ""
+
+    return video_url, video_description
+
+
 def get_video_data_by_video_id(video_id: str) -> str:
     ig_query_url = "https://www.instagram.com/graphql/query"
 
@@ -94,6 +132,13 @@ def get_video_data_by_video_id(video_id: str) -> str:
     }
 
     response = requests.post(ig_query_url, data=payload)
+    # response.status_code = 401
+    if response.status_code != 200:
+        send_message_to_owner(
+            f"Error {response.status_code} communicate with IG, {response.text}"
+        )
+        return
+
     response_json = response.json()
 
     video_url = response_json.get("data").get("xdt_shortcode_media").get("video_url")
@@ -167,7 +212,7 @@ async def msg_urls_processor(update: Update, context) -> None:
     video_id = video_ids[0]
 
     await update.message.reply_chat_action(action="upload_video")
-    video_link, video_description = get_video_data_by_video_id(video_id)
+    video_link, video_description = get_video_data_by_video_id2(video_id)
     msg = clip_msg(video_description)
 
     size_in_bytes = get_file_size(video_link)
@@ -250,3 +295,14 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# {"data":{"xdt_shortcode_media":null},"extensions":{"is_final":true},"status":"ok"}
+# curl -H 'accept: application/json' -H 'content-type: application/x-www-form-urlencoded'
+# -H 'x-ig-app-id: 916636666702661'
+# -H 'x-ig-device-id: 58CC75E5-A8D3-40D9-801C-B647D9393F8A'
+# --compressed
+# -H 'user-agent: instagram 368.0.0.697963422 (iPhone; iOS 16.7.2; ru_RU; ru; scale=2.0; 750x1334; 0)'
+# -H 'accept-language: ru'
+# -X POST https://i.instagram.com/api/v1/clips/clips_on_logged_out/
+# -d 'page_size=7&clips_media_shortcode=C6dRkayNZzw'
